@@ -11,27 +11,27 @@ import (
 func Create(w http.ResponseWriter, r *http.Request) {
 	db := dbConn()
 	defer db.Close()
-	if r.Method == "POST" {
-		name := r.FormValue("name")
-		ammount := r.FormValue("ammount")
-		if name == "" {
-			fmt.Fprintf(w, "Please enter a name")
-			return
-		} else if ammount == "" {
-			fmt.Fprintf(w, "Please enter an ammount")
-			return
-		}
-		stmt, err := db.Prepare("INSERT INTO inventory (name,ammount) VALUES(?,?)")
-		checkErr(err)
-		res, err := stmt.Exec(name, ammount)
-		if err != nil {
-			fmt.Fprintf(w, "Error: %s", err)
-			return
-		}
-		id, err := res.LastInsertId()
-		checkErr(err)
-		fmt.Fprintf(w, "New Record ID is %d", id)
+
+	name := r.FormValue("name")
+	ammount := r.FormValue("ammount")
+	if name == "" {
+		fmt.Fprintf(w, "Please enter a name")
+		return
+	} else if ammount == "" {
+		fmt.Fprintf(w, "Please enter an ammount")
+		return
 	}
+	stmt, err := db.Prepare("INSERT INTO inventory (name,ammount) VALUES(?,?)")
+	checkErr(err)
+	res, err := stmt.Exec(name, ammount)
+	if err != nil {
+		fmt.Fprintf(w, "Error: %s", err)
+		return
+	}
+	id, err := res.LastInsertId()
+	checkErr(err)
+	fmt.Fprintf(w, "New Record ID is %d", id)
+	r.URL.RawQuery = r.URL.RawQuery + "&uid=" + fmt.Sprintf("%d", id)
 }
 
 func Read(w http.ResponseWriter, r *http.Request) {
@@ -62,27 +62,30 @@ func Update(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	options := vars["option"]
 	//parse form values
+	uid := r.FormValue("uid")
 	name := r.FormValue("name")
 	ammount := r.FormValue("ammount")
-	if name == "" {
-		fmt.Fprintf(w, "Please enter a name")
-		return
-	} else if ammount == "" {
-		fmt.Fprintf(w, "Please enter an ammount")
+	if uid == "" {
+		fmt.Fprintf(w, "Please enter a uid")
 		return
 	}
 	//prepare query
-	var query string
+	query := "UPDATE inventory SET "
+	if name != "" {
+		query += "name=$1"
+	}
 	switch options {
 	case "":
-		query = "UPDATE inventory SET ammount=? WHERE name=?"
+		// query.a"UPDATE inventory SET ammount=? WHERE uid=?"
+		query += ",ammount=$2"
 	case "increment":
-		query = "UPDATE inventory SET ammount=ammount+? WHERE name=?"
+		query += ",ammount=ammount+$2"
 	}
+	query += " WHERE uid=$3"
 	stmt, err := db.Prepare(query)
 	checkErr(err)
 	//execute query
-	res, err := stmt.Exec(ammount, name)
+	res, err := stmt.Exec(name, ammount, uid)
 	if err != nil {
 		fmt.Fprintf(w, "Error: %s", err)
 		return
