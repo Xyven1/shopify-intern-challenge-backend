@@ -9,12 +9,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type Item struct {
-	Uid     int
-	Name    string
-	ammount string
-}
-
 func dbConn() (db *sql.DB) {
 	db, err := sql.Open("sqlite3", "./database.db")
 	checkErr(err)
@@ -30,7 +24,9 @@ func checkErr(err error) {
 func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/create", Create).Methods("POST")
-	r.HandleFunc("/edit", Edit).Methods("POST")
-	r.HandleFunc("/edit/{option}", Edit).Methods("POST")
+	r.HandleFunc("/read", Read).Methods("GET")
+	r.HandleFunc("/update", Update).Methods("POST")
+	r.HandleFunc("/update/{option}", Update).Methods("POST")
+	r.HandleFunc("/delete", Delete).Methods("POST")
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
