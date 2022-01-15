@@ -219,7 +219,7 @@ func Undo(env *Env, w http.ResponseWriter, r *http.Request) error {
 			return StatusError{http.StatusInternalServerError, err}
 		}
 	case "update":
-		_, err := env.DB.Exec("UPDATE inventory SET name=?, ammount=? WHERE uid=?", event.ItemUid, event.ItemPrevious.Name, event.ItemPrevious.Ammount)
+		_, err := env.DB.Exec("UPDATE inventory SET name=?, ammount=? WHERE uid=?", event.ItemPrevious.Name, event.ItemPrevious.Ammount, event.ItemUid)
 		if err != nil {
 			return StatusError{http.StatusInternalServerError, err}
 		}
