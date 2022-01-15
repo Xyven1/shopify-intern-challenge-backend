@@ -16,7 +16,7 @@ type Event struct {
 	Action       string    `db:"action" json:"action"`
 	ItemUid      int64     `db:"item_uid" json:"item_uid"`
 	ItemPrevious *Item     `db:"item_previous" json:"item_previous"`
-	Timestamp    time.Time `db:"timestamp"json:"timestamp"`
+	Timestamp    time.Time `db:"timestamp" json:"timestamp"`
 	Comment      string    `db:"comment" json:"comment"`
 }
 
@@ -228,7 +228,7 @@ func Undo(env *Env, w http.ResponseWriter, r *http.Request) error {
 			return StatusError{http.StatusInternalServerError, err}
 		}
 	default:
-		return StatusError{http.StatusBadRequest, fmt.Errorf("unknown action %s", event.Action)}
+		return StatusError{http.StatusBadRequest, fmt.Errorf("Cannot undo actions of type '%s'", event.Action)}
 	}
 	env.DB.Exec("DELETE FROM event_history WHERE uid=?", event.Uid)
 	//execute query
