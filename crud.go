@@ -12,12 +12,12 @@ import (
 )
 
 type Event struct {
-	Uid          int64     `db:"uid"`
-	Action       string    `db:"action"`
-	ItemUid      int64     `db:"item_uid"`
-	ItemPrevious *Item     `db:"item_previous"`
-	Timestamp    time.Time `db:"timestamp"`
-	Comment      string    `db:"comment"`
+	Uid          int64     `db:"uid" json:"uid"`
+	Action       string    `db:"action" json:"action"`
+	ItemUid      int64     `db:"item_uid" json:"item_uid"`
+	ItemPrevious *Item     `db:"item_previous" json:"item_previous"`
+	Timestamp    time.Time `db:"timestamp"json:"timestamp"`
+	Comment      string    `db:"comment" json:"comment"`
 }
 
 type Item struct {
@@ -234,7 +234,15 @@ func Undo(env *Env, w http.ResponseWriter, r *http.Request) error {
 	//execute query
 	return nil
 }
-
+func History(env *Env, w http.ResponseWriter, r *http.Request) error {
+	var events []Event
+	err := env.DB.Select(&events, "SELECT * FROM event_history")
+	if err != nil {
+		return err
+	}
+	json.NewEncoder(w).Encode(events)
+	return nil
+}
 func parseFormData(r *http.Request, item interface{}) error {
 	err := r.ParseForm()
 	if err != nil {

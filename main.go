@@ -41,5 +41,6 @@ func main() {
 	r.Handle("/update/{option}", Handler{env, Update}).Methods("POST")
 	r.Handle("/delete", Handler{env, Delete}).Methods("POST")
 	r.Handle("/undo", Handler{env, Undo}).Methods("POST")
+	r.Handle("/history", Handler{env, History}).Methods("GET")
 	log.Fatal(http.ListenAndServe(":8080", r))
 }

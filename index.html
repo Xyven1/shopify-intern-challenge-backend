@@ -33,8 +33,23 @@
       <input type="number" name="uid" placeholder="History Item ID">
       <button type="submit">Undo</button>
     </form>
+    <div id="result"></div>
+    <div style="display: flex;">
+      <div style="width: 50%;">
+        <h1>Items</h1>
+        <table id="table" border="1">
+        </table>
+      </div>
+      <div style="width: 50%;">
+        <h1>History</h1>
+        <table id="history" border="1">
+        </table>
+    </div>
+    </div>
   </body>
   <script>
+    updateTable();
+    updateHistoryTable();
     var create = document.getElementById('create');
     var read = document.getElementById('read');
     var update = document.getElementById('update');
@@ -42,8 +57,13 @@
     var undo = document.getElementById('undo');
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
-      if (this.readyState == 4 && this.status == 200) {
+      if (this.readyState == 4) {
+        document.getElementById('result').innerHTML = this.responseText;
         console.log(this.responseText);
+        if(this.status == 200){
+          updateTable();
+          updateHistoryTable();
+        }
       }
     };
     create.addEventListener('submit', function(e) {
@@ -95,5 +115,49 @@
         query.push("uid=" + undo.uid.value);
       xhttp.send(query.join('&'));
     });
+
+    async function updateTable(){
+      const res = await fetch('http://localhost:8080/read').then(response => response.json());
+      constructTable(res, document.getElementById('table'));
+    }
+    async function updateHistoryTable(){
+      const res = await fetch('http://localhost:8080/history').then(response => response.json());
+      res.forEach(row => {
+        row.item_previous = JSON.stringify(row.item_previous);
+      });
+      constructTable(res, document.getElementById('history'));
+    }
+    function constructTable(list, table) {
+      table.innerHTML = '';
+      var cols = Headers(list, table); 
+      for (var i = 0; i < list.length; i++) {
+        var row = document.createElement("tr");  
+        for (var colIndex = 0; colIndex < cols.length; colIndex++){
+          var val = list[i][cols[colIndex]];
+          if (val == null) val = "";
+          var td = document.createElement("td");
+          td.innerHTML = val;
+          row.append(td);
+        }
+        table.append(row);
+      }
+    }
+    function Headers(list, table) {
+      var columns = [];
+      var header = document.createElement("tr");
+      for (var i = 0; i < list.length; i++) {
+        var row = list[i];
+        for (var k in row) {
+          if (columns.indexOf(k) === -1) {
+            columns.push(k);
+            var th = document.createElement("th");
+            th.innerHTML = k;
+            header.append(th);
+          }
+        }
+      }
+      table.append(header);
+      return columns;
+    }    
   </script>
 </html>
