@@ -1,6 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
   <body>
-    Test
+    Create
+    <form id="create">
+      <input type="text" name="name" placeholder="Name" required>
+      <input type="number" name="ammount" placeholder="Ammount" required>
+      <button type="submit">Create</button>
+    </form>
+    Read
+    <form id="read">
+      <input type="number" name="minAmmount" placeholder="Mimimum Ammount">
+      <input type="number" name="maxAmmount" placeholder="Maximum Ammount">
+      <button type="submit">Read</button>
+    </form>
+    Update
+    <form id="update">
+      <input type="number" name="uid" placeholder="Item ID" required>
+      <input type="text" name="name" placeholder="Name">
+      <input type="number" name="ammount" placeholder="Ammount">
+      <checkbox name="increment" value="increment">Increment Ammount</checkbox>
+      <button type="submit">Update</button>
+    </form>
+    Delete
+    <form id="delete">
+      <input type="number" name="uid" placeholder="Item ID" required>
+      <textarea name="commnet" placeholder="Comment"></textarea>
+      <button type="submit">Delete</button>
+    </form>
+    Undo
+    <form id="undo">
+      <input type="number" name="item_uid" placeholder="Item ID">
+      <input type="number" name="uid" placeholder="History Item ID">
+      <button type="submit">Undo</button>
+    </form>
   </body>
+  <script>
+    var create = document.getElementById('create');
+    var read = document.getElementById('read');
+    var update = document.getElementById('update');
+    var deletee = document.getElementById('delete');
+    var undo = document.getElementById('undo');
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        console.log(this.responseText);
+      }
+    };
+    create.addEventListener('submit', function(e) {
+      e.preventDefault();
+      xhttp.open("POST", "http://localhost:8080/create", true);
+      xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+      xhttp.send("name=" + create.name.value + "&ammount=" + create.ammount.value);
+    });
+    read.addEventListener('submit', function(e) {
+      e.preventDefault();
+      xhttp.open("POST", "http://localhost:8080/read", true);
+      xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+      let query = []
+      if(read.minAmmount.value)
+        query.push("minAmmount=" + read.minAmmount.value);
+      if(read.maxAmmount.value)
+        query.push("maxAmmount=" + read.maxAmmount.value);
+      xhttp.send(query.join('&'));
+    });
+    update.addEventListener('submit', function(e) {
+      e.preventDefault();
+      xhttp.open("POST", `http://localhost:8080/update${update.increment.checked ? '/increment' : ''}`, true);
+      xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+      let query = []
+      query.push("uid=" + update.uid.value);
+      if(update.name.value)
+        query.push("name=" + update.name.value);
+      if(update.ammount.value)
+        query.push("ammount=" + update.ammount.value);
+      xhttp.send(query.join('&'));
+    });
+    deletee.addEventListener('submit', function(e) {
+      e.preventDefault();
+      xhttp.open("POST", "http://localhost:8080/delete", true);
+      xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+      if (deletee.commnet.value)
+        xhttp.send("uid=" + deletee.uid.value + "&comment=" + deletee.commnet.value);
+      else
+        xhttp.send("uid=" + deletee.uid.value);
+    });
+    undo.addEventListener('submit', function(e) {
+      e.preventDefault();
+      xhttp.open("POST", "http://localhost:8080/undo", true);
+      xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded")
+      let query = []
+      if(undo.item_uid.value)
+        query.push("item_uid=" + undo.item_uid.value);
+      else if(undo.uid.value)
+        query.push("uid=" + undo.uid.value);
+      xhttp.send(query.join('&'));
+    });
+  </script>
 </html>
