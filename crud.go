@@ -228,7 +228,7 @@ func Undo(env *Env, w http.ResponseWriter, r *http.Request) error {
 			return StatusError{http.StatusInternalServerError, err}
 		}
 	default:
-		return StatusError{http.StatusBadRequest, fmt.Errorf("Cannot undo actions of type '%s'", event.Action)}
+		return StatusError{http.StatusBadRequest, fmt.Errorf("cannot undo actions of type '%s'", event.Action)}
 	}
 	env.DB.Exec("DELETE FROM event_history WHERE uid=?", event.Uid)
 	//execute query

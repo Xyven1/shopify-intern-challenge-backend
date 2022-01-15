@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func checkErr(err error) {
@@ -21,7 +21,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	r := mux.NewRouter()
-	db, err := sqlx.Open("sqlite3", "database.db")
+	db, err := sqlx.Open("sqlite", "database.db")
 	checkErr(err)
 	query, err := db.Prepare("INSERT INTO event_history (action, item_uid, item_previous, comment) VALUES (?, ?, ?, ?)")
 	checkErr(err)
