@@ -1,36 +1,85 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 )
 
+type Event struct {
+	Uid          int64     `db:"uid"`
+	Action       string    `db:"action"`
+	ItemUid      int64     `db:"item_uid"`
+	ItemPrevious *Item     `db:"item_previous"`
+	Timestamp    time.Time `db:"timestamp"`
+	Comment      string    `db:"comment"`
+}
+
 type Item struct {
-	Uid     int64
+	Uid     int64  `json:"uid"`
+	Name    string `json:"name"`
+	Ammount int64  `json:"ammount"`
+}
+
+func (e *Item) Scan(src interface{}) error {
+	var value string
+	switch src.(type) {
+	case string:
+		value = src.(string)
+	default:
+		return fmt.Errorf("unsupported type: %T", src)
+	}
+	if value == "" {
+		return nil
+	}
+	*e = Item{}
+	err := json.Unmarshal([]byte(value), e)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type ItemJson Item
+
+type CreateReq struct {
+	Name    string `schema:"name"`
+	Ammount int64  `schema:"ammount"`
+}
+
+type ReadReq struct {
+	MinAmmount *int64 `schema:"minAmmount"`
+	MaxAmmount *int64 `schema:"maxAmmount"`
+}
+
+type UpdateReq struct {
+	Uid     int64   `schema:"uid"`
 	Name    *string `schema:"name"`
 	Ammount *int64  `schema:"ammount"`
 }
 
+type DeleteReq struct {
+	Uid         int64
+	Description *string `schema:"description"`
+}
+
+type UndoReq struct {
+	Uid     *int64 `schema:"uid"`
+	ItemUid *int64 `schema:"item_uid"`
+}
+
 func Create(env *Env, w http.ResponseWriter, r *http.Request) error {
-	name := r.FormValue("name")
-	ammount := r.FormValue("ammount")
-	if name == "" {
-		return StatusError{http.StatusBadRequest, fmt.Errorf("please enter a name")}
-	} else if ammount == "" {
-		return StatusError{http.StatusBadRequest, fmt.Errorf("please enter an ammount")}
-	}
-	stmt, err := env.DB.Prepare("INSERT INTO inventory (name,ammount) VALUES(?,?)")
+	var req CreateReq
+	err := parseFormData(r, &req)
 	if err != nil {
-		return StatusError{http.StatusInternalServerError, err}
+		return err
 	}
-	res, err := stmt.Exec(name, ammount)
+	res, err := env.DB.Exec("INSERT INTO inventory (name, ammount) VALUES (?, ?)", req.Name, req.Ammount)
 	if err != nil {
 		return StatusError{http.StatusBadRequest, err}
 	}
@@ -39,47 +88,43 @@ func Create(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return StatusError{http.StatusInternalServerError, err}
 	}
 	fmt.Fprintf(w, "New Record ID is %d", id)
-	r.URL.RawQuery = r.URL.RawQuery + "&uid=" + fmt.Sprintf("%d", id)
-	env.PushHistory("create", id, "", "created new record")
+	env.PushHistory("create", id, "", "")
 	return nil
 }
 
 func Read(env *Env, w http.ResponseWriter, r *http.Request) error {
-	minAmt := r.FormValue("minAmt")
-	maxAmt := r.FormValue("maxAmt")
-	var rows *sql.Rows
-	var err error
-	switch {
-	case minAmt == "" && maxAmt == "":
-		rows, err = env.DB.Query("SELECT * FROM inventory")
-	case minAmt != "" && maxAmt == "":
-		rows, err = env.DB.Query("SELECT * FROM inventory WHERE ammount>=?", minAmt)
-	case minAmt == "" && maxAmt != "":
-		rows, err = env.DB.Query("SELECT * FROM inventory WHERE ammount<=?", maxAmt)
-	case minAmt != "" && maxAmt != "":
-		rows, err = env.DB.Query("SELECT * FROM inventory WHERE ammount BETWEEN ? AND ?", minAmt, maxAmt)
+	var req ReadReq
+	err := parseFormData(r, &req)
+	if err != nil {
+		return err
 	}
+	items := []ItemJson{}
+	queries := []string{}
+	params := []interface{}{}
+	if req.MaxAmmount != nil {
+		queries = append(queries, " WHERE ammount<=? ")
+		params = append(params, *req.MaxAmmount)
+	}
+	if req.MinAmmount != nil {
+		queries = append(queries, " WHERE ammount>=? ")
+		params = append(params, *req.MinAmmount)
+	}
+	err = env.DB.Select(&items, "SELECT * FROM inventory"+strings.Join(queries, "AND"), params...)
 	if err != nil {
 		return StatusError{http.StatusInternalServerError, err}
 	}
-	makeStructJSON(w, rows)
+	json.NewEncoder(w).Encode(items)
 	return nil
 }
 
 func Update(env *Env, w http.ResponseWriter, r *http.Request) error {
-	//parse form values
-	err := r.ParseForm()
+	var req UpdateReq
+	err := parseFormData(r, &req)
 	if err != nil {
-		return StatusError{http.StatusInternalServerError, err}
-	}
-	var decoder = schema.NewDecoder()
-	var newItem Item
-	err = decoder.Decode(&newItem, r.PostForm)
-	if err != nil {
-		return StatusError{http.StatusBadRequest, err}
+		return err
 	}
 	//save old values
-	json, err := jsonFromUid(env, newItem.Uid)
+	json, err := jsonFromUid(env, req.Uid)
 	if err != nil {
 		return err
 	}
@@ -87,12 +132,12 @@ func Update(env *Env, w http.ResponseWriter, r *http.Request) error {
 	params := []interface{}{}
 	values := []string{}
 
-	if newItem.Name != nil {
-		params = append(params, newItem.Name)
+	if req.Name != nil {
+		params = append(params, req.Name)
 		values = append(values, "name=?")
 	}
-	if newItem.Ammount != nil {
-		params = append(params, newItem.Ammount)
+	if req.Ammount != nil {
+		params = append(params, req.Ammount)
 		if mux.Vars(r)["option"] == "increment" {
 			values = append(values, "ammount=ammount+?")
 		} else {
@@ -102,7 +147,7 @@ func Update(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if len(params) == 0 {
 		return StatusError{http.StatusBadRequest, fmt.Errorf("please enter at least new data for at least one column")}
 	}
-	params = append(params, newItem.Uid)
+	params = append(params, req.Uid)
 	query := "UPDATE inventory SET " + strings.Join(values, ",") + " WHERE uid=?"
 	//execute query
 	_, err = env.DB.Exec(query, params...)
@@ -110,13 +155,83 @@ func Update(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return StatusError{http.StatusBadRequest, err}
 	}
 	//push history
-	env.PushHistory("update", newItem.Uid, json, "created new record")
+	env.PushHistory("update", req.Uid, json, "created new record")
+	return nil
+}
+
+func Delete(env *Env, w http.ResponseWriter, r *http.Request) error {
+	var req DeleteReq
+	err := parseFormData(r, &req)
+	if err != nil {
+		return err
+	}
+	//save old values
+	json, err := jsonFromUid(env, req.Uid)
+	if err != nil {
+		return err
+	}
+	res, err := env.DB.Exec("DELETE FROM inventory WHERE uid=?", req.Uid)
+	if err != nil {
+		return StatusError{http.StatusInternalServerError, err}
+	}
+	if _, err := res.RowsAffected(); err != nil {
+		return StatusError{http.StatusBadRequest, fmt.Errorf("no record found with uid %d", req.Uid)}
+	}
+	env.PushHistory("delete", req.Uid, json, "deleted record")
+	return nil
+}
+
+func Undo(env *Env, w http.ResponseWriter, r *http.Request) error {
+	var req UndoReq
+	err := parseFormData(r, &req)
+	if err != nil {
+		return err
+	}
+	//restore old values
+	var event Event
+	if req.ItemUid != nil {
+		//undo last action for specific item
+		err := env.DB.Get(&event, "SELECT * FROM event_history WHERE item_uid=? ORDER BY uid DESC LIMIT 1", req.ItemUid)
+		if err != nil {
+			return StatusError{http.StatusBadRequest, fmt.Errorf("no history found for item with uid %d", req.Uid)}
+		}
+	} else if req.Uid != nil {
+		//undo specific action in history
+		err := env.DB.Get(&event, "SELECT * FROM event_history WHERE uid=?", req.Uid)
+		if err != nil {
+			return StatusError{http.StatusBadRequest, err}
+		}
+
+	} else {
+		//undo last action
+		err := env.DB.Get(&event, "SELECT * FROM event_history ORDER BY uid DESC LIMIT 1")
+		if err != nil {
+			return StatusError{http.StatusBadRequest, fmt.Errorf("no history found")}
+		}
+	}
+	if event.Action == "create" {
+
+	}
+	//execute query
+	return nil
+}
+
+func parseFormData(r *http.Request, item interface{}) error {
+	err := r.ParseForm()
+	if err != nil {
+		return StatusError{http.StatusInternalServerError, err}
+	}
+	var decoder = schema.NewDecoder()
+	err = decoder.Decode(item, r.PostForm)
+	if err != nil {
+		return StatusError{http.StatusBadRequest, err}
+	}
 	return nil
 }
 
 func jsonFromUid(env *Env, uid int64) (string, error) {
-	var item Item
-	err := env.DB.QueryRowx("SELECT * FROM inventory WHERE uid=?", uid).StructScan(&item)
+	var item ItemJson
+	err := env.DB.Get(&item, "SELECT * FROM inventory WHERE uid=?", uid)
 	if err != nil {
 		return "", StatusError{http.StatusBadRequest, err}
 	}
@@ -125,30 +240,4 @@ func jsonFromUid(env *Env, uid int64) (string, error) {
 		return "", StatusError{http.StatusInternalServerError, err}
 	}
 	return string(json), nil
-}
-
-func Delete(env *Env, w http.ResponseWriter, r *http.Request) error {
-	uid, err := strconv.ParseInt(r.FormValue("uid"), 10, 64)
-	if err != nil {
-		return StatusError{http.StatusBadRequest, fmt.Errorf("please enter a uid")}
-	}
-	stmt, err := env.DB.Prepare("DELETE FROM inventory WHERE uid=?")
-	if err != nil {
-		return StatusError{http.StatusInternalServerError, err}
-	}
-	res, err := stmt.Exec(uid)
-	if err != nil {
-		return StatusError{http.StatusBadRequest, err}
-	}
-	affect, err := res.RowsAffected()
-	if err != nil {
-		return StatusError{http.StatusInternalServerError, err}
-	}
-	if affect > 0 {
-		fmt.Fprintf(w, "Deleted Record ID is %d", affect)
-		env.PushHistory("delete", uid, "", "created new record")
-	} else {
-		fmt.Fprintf(w, "No record found")
-	}
-	return nil
 }
