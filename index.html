@@ -1,46 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
-  <body>
+  <body style="display: flex; flex-direction: column;">
     Create
     <form id="create">
       <input type="text" name="name" placeholder="Name" required>
       <input type="number" name="ammount" placeholder="Ammount" required>
       <button type="submit">Create</button>
+      <hr>
     </form>
-    Read
+    Read (both parameters are optional)
     <form id="read">
       <input type="number" name="minAmmount" placeholder="Mimimum Ammount">
       <input type="number" name="maxAmmount" placeholder="Maximum Ammount">
       <button type="submit">Read</button>
+      <hr>
     </form>
-    Update
+    Update (name and/or ammount required)
     <form id="update">
       <input type="number" name="uid" placeholder="Item ID" required>
       <input type="text" name="name" placeholder="Name">
       <input type="number" name="ammount" placeholder="Ammount">
-      <input type="checkbox" name="increment" value="increment">Increment? (otherwise sets value)</input>
+      <input type="checkbox" name="increment" value="increment">Increment mode?</input>
       <button type="submit">Update</button>
+      <hr>
     </form>
-    Delete
+    Delete (comment optional)
     <form id="delete">
       <input type="number" name="uid" placeholder="Item ID" required>
       <textarea name="commnet" placeholder="Comment"></textarea>
       <button type="submit">Delete</button>
+      <hr>
     </form>
-    Undo
+    Undo (both parameters are optional. Default is last transaction)
     <form id="undo">
       <input type="number" name="item_uid" placeholder="Item ID">
       <input type="number" name="uid" placeholder="History Item ID">
       <button type="submit">Undo</button>
+      <hr>
     </form>
     <div id="result"></div>
-    <div style="display: flex;">
-      <div style="width: 50%;">
+    <div style="display: flex; flex-direction: row;">
+      <div>
         <h1>Items</h1>
         <table id="table" border="1">
         </table>
       </div>
-      <div style="width: 50%;">
+      <hr style="margin: 5px;">
+      <div>
         <h1>History</h1>
         <table id="history" border="1">
         </table>
@@ -160,4 +166,12 @@
       return columns;
     }    
   </script>
+  <style>
+    form {
+      width: max-content;
+    }
+    form > * {
+      margin: 2px;
+    }
+  </style>
 </html>

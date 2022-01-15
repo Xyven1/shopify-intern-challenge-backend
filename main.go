@@ -25,7 +25,7 @@ func main() {
 	checkErr(err)
 	query, err := db.Prepare("INSERT INTO event_history (action, item_uid, item_previous, comment) VALUES (?, ?, ?, ?)")
 	checkErr(err)
-
+	log.Println("Database connection established")
 	env := &Env{
 		DB: db,
 		PushHistory: func(action string, item_uid int64, item_previous string, description string) {
@@ -42,5 +42,6 @@ func main() {
 	r.Handle("/delete", Handler{env, Delete}).Methods("POST")
 	r.Handle("/undo", Handler{env, Undo}).Methods("POST")
 	r.Handle("/history", Handler{env, History}).Methods("GET")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Println("Server started. Available at: http://localhost:8080")
+	log.Println(http.ListenAndServe(":8080", r))
 }
