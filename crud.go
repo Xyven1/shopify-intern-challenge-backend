@@ -102,14 +102,18 @@ func Read(env *Env, w http.ResponseWriter, r *http.Request) error {
 	queries := []string{}
 	params := []interface{}{}
 	if req.MaxAmmount != nil {
-		queries = append(queries, " WHERE ammount<=? ")
+		queries = append(queries, " ammount<=? ")
 		params = append(params, *req.MaxAmmount)
 	}
 	if req.MinAmmount != nil {
-		queries = append(queries, " WHERE ammount>=? ")
+		queries = append(queries, " ammount>=? ")
 		params = append(params, *req.MinAmmount)
 	}
-	err = env.DB.Select(&items, "SELECT * FROM inventory"+strings.Join(queries, "AND"), params...)
+	query := ""
+	if len(queries) > 0 {
+		query = " WHERE " + strings.Join(queries, "AND")
+	}
+	err = env.DB.Select(&items, "SELECT * FROM inventory"+query, params...)
 	if err != nil {
 		return StatusError{http.StatusInternalServerError, err}
 	}
