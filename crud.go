@@ -64,8 +64,8 @@ type UpdateReq struct {
 }
 
 type DeleteReq struct {
-	Uid         int64
-	Description *string `schema:"description"`
+	Uid     int64
+	Comment *string `schema:"comment"`
 }
 
 type UndoReq struct {
@@ -148,14 +148,13 @@ func Update(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return StatusError{http.StatusBadRequest, fmt.Errorf("please enter at least new data for at least one column")}
 	}
 	params = append(params, req.Uid)
-	query := "UPDATE inventory SET " + strings.Join(values, ",") + " WHERE uid=?"
 	//execute query
-	_, err = env.DB.Exec(query, params...)
+	_, err = env.DB.Exec("UPDATE inventory SET "+strings.Join(values, ",")+" WHERE uid=?", params...)
 	if err != nil {
 		return StatusError{http.StatusBadRequest, err}
 	}
 	//push history
-	env.PushHistory("update", req.Uid, json, "created new record")
+	env.PushHistory("update", req.Uid, json, "")
 	return nil
 }
 
@@ -177,7 +176,11 @@ func Delete(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if _, err := res.RowsAffected(); err != nil {
 		return StatusError{http.StatusBadRequest, fmt.Errorf("no record found with uid %d", req.Uid)}
 	}
-	env.PushHistory("delete", req.Uid, json, "deleted record")
+	comment := ""
+	if req.Comment != nil {
+		comment = *req.Comment
+	}
+	env.PushHistory("delete", req.Uid, json, comment)
 	return nil
 }
 
@@ -209,9 +212,21 @@ func Undo(env *Env, w http.ResponseWriter, r *http.Request) error {
 			return StatusError{http.StatusBadRequest, fmt.Errorf("no history found")}
 		}
 	}
-	if event.Action == "create" {
-
+	switch event.Action {
+	case "delete":
+		_, err := env.DB.Exec("INSERT INTO inventory (uid, name, ammount) VALUES (?, ?, ?)", event.ItemUid, event.ItemPrevious.Name, event.ItemPrevious.Ammount)
+		if err != nil {
+			return StatusError{http.StatusInternalServerError, err}
+		}
+	case "update":
+		_, err := env.DB.Exec("UPDATE inventory SET name=?, ammount=? WHERE uid=?", event.ItemUid, event.ItemPrevious.Name, event.ItemPrevious.Ammount)
+		if err != nil {
+			return StatusError{http.StatusInternalServerError, err}
+		}
+	default:
+		return StatusError{http.StatusBadRequest, fmt.Errorf("unknown action %s", event.Action)}
 	}
+	env.DB.Exec("DELETE FROM event_history WHERE uid=?", event.Uid)
 	//execute query
 	return nil
 }
