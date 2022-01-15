@@ -1,11 +1,11 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -21,14 +21,17 @@ func Index(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	r := mux.NewRouter()
-	db, err := sql.Open("sqlite3", "./database.db")
+	db, err := sqlx.Open("sqlite3", "./database.db")
 	checkErr(err)
-	query, err := db.Prepare("INSERT INTO event_history (action, item_uid, description) VALUES (?, ?, ?)")
+	query, err := db.Prepare("INSERT INTO event_history (action, item_uid, item_previous, description) VALUES (?, ?, ?, ?)")
 	checkErr(err)
 
 	env := &Env{
-		DB:           db,
-		HistoryQuery: query,
+		DB: db,
+		PushHistory: func(action string, item_uid int64, item_previous string, description string) {
+			_, err := query.Exec(action, item_uid, item_previous, description)
+			checkErr(err)
+		},
 	}
 
 	r.HandleFunc("/", Index)

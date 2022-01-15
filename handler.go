@@ -1,9 +1,10 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
+
+	"github.com/jmoiron/sqlx"
 )
 
 // Error represents a handler error. It provides methods for a HTTP status
@@ -31,8 +32,8 @@ func (se StatusError) Status() int {
 
 // A (simple) example of our application-wide configuration.
 type Env struct {
-	DB           *sql.DB
-	HistoryQuery *sql.Stmt
+	DB          *sqlx.DB
+	PushHistory func(action string, item_uid int64, item_previous string, description string)
 }
 
 // The Handler struct that takes a configured Env and a function matching
